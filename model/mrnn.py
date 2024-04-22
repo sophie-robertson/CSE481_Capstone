@@ -2,13 +2,20 @@ import torch
 from torch import nn
 
 class MilliesRNN(nn.Module):
-    def __init__(self, input_dim, hid_dim, num_layers, output_dim bidirc=True):
-        self.test = nn.RNN(input_dim, hid_dim, num_layers, 'relu', bidirectional=bidirc)
-        self.final = nn.Linear(input_dim, output_dim)
+    def __init__(self, _input_dim, _hid_dim, _num_layers, _output_dim, bidirc=True):
+        super(MilliesRNN, self).__init__()
+        self.hid_dim = _hid_dim
+        self.num_layers = _num_layers
+        self.test = nn.RNN(_input_dim, _hid_dim, num_layers = 3, nonlinearity='relu', bidirectional=True)
+        # self.final = nn.Linear(_hid_dim, _output_dim)
+        self.final = nn.Linear(2*_hid_dim, _output_dim)
 
     def forward(self, data): 
-        visual, hidden = data
-        inter = self.test(visual, hidden)
+        inter, hn = self.test(data, self.init_hidden())
         output = self.final(inter)
 
-        return output
+        return output, hn
+    
+    def init_hidden(self):
+        # return nn.init.kaiming_uniform_(torch.empty(self.num_layers, self.hid_dim))
+        return nn.init.kaiming_uniform_(torch.empty(2*self.num_layers, self.hid_dim)) # for bidirectional
