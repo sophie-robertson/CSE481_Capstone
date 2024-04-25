@@ -6,7 +6,7 @@ class MilliesRNN(nn.Module):
         super(MilliesRNN, self).__init__()
         self.hid_dim = _hid_dim
         self.num_layers = _num_layers
-        self.test = nn.RNN(_input_dim, _hid_dim, num_layers = 3, nonlinearity='relu', bidirectional=True)
+        self.test = nn.RNN(_input_dim, _hid_dim, num_layers = 3, nonlinearity='tanh', bidirectional=True)
         # self.final = nn.Linear(_hid_dim, _output_dim)
         self.final = nn.Linear(2*_hid_dim, _output_dim)
 
