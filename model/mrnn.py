@@ -2,23 +2,28 @@ import torch
 from torch import nn
 
 class MilliesRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
+    def __init__(self, input_size, hidden_size, output_size, bidirc=False):
         super(MilliesRNN, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.output_size = output_size
 
-        self.i2h = nn.Linear(input_size, hidden_size)
-        self.h2h = nn.Linear(hidden_size, hidden_size)
+        self.bidirc = bidirc
+        if self.bidirc:
+            self.hidden_size += self.output_size
 
-        self.h2o = nn.Linear(hidden_size, output_size)
+        # visual cortex
+        self.i2h = nn.Linear(self.input_size, self.hidden_size - self.output_size)
+        self.h2h = nn.Linear(self.hidden_size, self.hidden_size)
+        self.h2o = nn.Linear(self.hidden_size, self.output_size)
 
-        self.thal = nn.Linear(output_size, output_size)
+        # thalamus
+        self.thal = nn.Linear(2 * self.output_size, self.output_size)
 
-        self.i2h_dos = nn.Linear(output_size, hidden_size)
-        self.h2h_dos = nn.Linear(hidden_size, hidden_size)
-
-        self.h2o_dos = nn.Linear(hidden_size, output_size)
+        # motor cortex
+        self.i2h_dos = nn.Linear(self.output_size, self.hidden_size)
+        self.h2h_dos = nn.Linear(self.hidden_size, self.hidden_size)
+        self.h2o_dos = nn.Linear(self.hidden_size, self.output_size)
         
         
 
@@ -30,38 +35,45 @@ class MilliesRNN(nn.Module):
         output --> N x O
         """
         batch_size = data.shape[0]
-
         trial_len = data.shape[1]
-        outputs_v = torch.zeros((data.shape[0], data.shape[1], self.output_size))
-        outputs_m = torch.zeros((data.shape[0], data.shape[1], self.output_size))
-        hidden_states_v = torch.zeros((data.shape[0], data.shape[1], self.hidden_size))
-        hidden_states_m = torch.zeros((data.shape[0], data.shape[1], self.hidden_size))
-        hidden_state = self.init_hidden(batch_size)
 
-        # visual cortex
+        outputs_v = torch.zeros((batch_size, trial_len, self.output_size))
+        outputs_m = torch.zeros((batch_size, trial_len, self.output_size))
+        outputs_t = torch.zeros((batch_size, trial_len, self.output_size))
+        hidden_states_v = torch.zeros((batch_size, trial_len, self.hidden_size))
+        hidden_states_m = torch.zeros((batch_size, trial_len, self.hidden_size))
+        hidden_state_v = self.init_hidden(batch_size)
+        hidden_state_m = self.init_hidden(batch_size)
+
+        inp_mots = torch.zeros((batch_size, trial_len, self.output_size))
+
+        
         for i in range(trial_len):
-            x = data[:, i, :]
-            x = self.i2h(x) 
-            hidden_state = self.h2h(hidden_state)
-            hidden_state = self.retanh(x + hidden_state)
-            out = self.h2o(hidden_state)
-            outputs_v[:, i, :] = out
-            hidden_states_v[:, i, :] = hidden_state
+            # visual cortex
+            # inp_vis = data[:, i, :] # N x L
+            inp_vis = self.i2h(data[:, i, :]) # N x H
+            if self.bidirc: 
+                inp_vis = torch.cat((inp_vis, outputs_t[:, i-1,:]), dim=1)
+            hidden_state_v = self.h2h(hidden_state_v)
+            hidden_state_v = self.retanh(inp_vis + hidden_state_v)
+            out_v = self.h2o(hidden_state_v)
+            outputs_v[:, i, :] = out_v
+            hidden_states_v[:, i, :] = hidden_state_v
 
-        # thalamus
-        # print(outputs.shape)
-        outputs_t = self.retanh(self.thal(outputs_v))
+            # thalamus
+            inp_thal = out_v
+            if self.bidirc:
+                inp_thal = torch.cat((inp_thal, outputs_m[:, i-1, :]), dim=1)
+            out_thal = self.retanh(self.thal(inp_thal))
+            outputs_t[:, i, :] = out_thal
 
-        # motor cortex
-        hidden_state = self.init_hidden(batch_size)
-        for i in range(trial_len):
-            x = outputs_t[:, i, :]
-            x = self.i2h_dos(x) 
-            hidden_state = self.h2h_dos(hidden_state)
-            hidden_state = self.retanh(x + hidden_state)
-            out = self.h2o_dos(hidden_state)
-            outputs_m[:, i, :] = out
-            hidden_states_m[:, i, :] = hidden_state
+            inp_mot = out_thal
+            inp_mot = self.i2h_dos(out_thal) 
+            hidden_state_m = self.h2h_dos(hidden_state_m)
+            hidden_state_m = self.retanh(inp_mot + hidden_state_m)
+            out_m = self.h2o_dos(hidden_state_m)
+            outputs_m[:, i, :] = out_m
+            hidden_states_m[:, i, :] = hidden_state_m
 
         return outputs_m
 
