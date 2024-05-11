@@ -18,10 +18,10 @@ class MilliesRNN(nn.Module):
         self.h2o = nn.Linear(self.hidden_size, self.output_size)
 
         # thalamus
-        self.thal = nn.Linear(2 * self.output_size, self.output_size)
+        self.thal = nn.Linear(2 * self.output_size+1, self.output_size)
 
         # motor cortex
-        self.i2h_dos = nn.Linear(self.output_size, self.hidden_size)
+        self.i2h_dos = nn.Linear(self.output_size+1, self.hidden_size)
         self.h2h_dos = nn.Linear(self.hidden_size, self.hidden_size)
         self.h2o_dos = nn.Linear(self.hidden_size, self.output_size)
         
@@ -34,6 +34,8 @@ class MilliesRNN(nn.Module):
 
         output --> N x O
         """
+        images = data[:, :, :-1]
+        holds = data[:, :, -1].reshape(data.shape[0], data.shape[1], 1)
         batch_size = data.shape[0]
         trial_len = data.shape[1]
 
@@ -49,9 +51,12 @@ class MilliesRNN(nn.Module):
 
         
         for i in range(trial_len):
+            image = images[:, i, :]
+            hold = holds[:, i, :]
+
             # visual cortex
-            # inp_vis = data[:, i, :] # N x L
-            inp_vis = self.i2h(data[:, i, :]) # N x H
+            inp_vis = torch.cat((image, hold), dim=1)
+            inp_vis = self.i2h(inp_vis) # N x H
             if self.bidirc: 
                 inp_vis = torch.cat((inp_vis, outputs_t[:, i-1,:]), dim=1)
             hidden_state_v = self.h2h(hidden_state_v)
@@ -61,14 +66,15 @@ class MilliesRNN(nn.Module):
             hidden_states_v[:, i, :] = hidden_state_v
 
             # thalamus
-            inp_thal = out_v
+            inp_thal = torch.cat((out_v, hold), dim=1)
             if self.bidirc:
                 inp_thal = torch.cat((inp_thal, outputs_m[:, i-1, :]), dim=1)
             out_thal = self.retanh(self.thal(inp_thal))
             outputs_t[:, i, :] = out_thal
 
-            inp_mot = out_thal
-            inp_mot = self.i2h_dos(out_thal) 
+            # motor cortex
+            inp_mot = torch.cat((out_thal, hold), dim=1)
+            inp_mot = self.i2h_dos(inp_mot) 
             hidden_state_m = self.h2h_dos(hidden_state_m)
             hidden_state_m = self.retanh(inp_mot + hidden_state_m)
             out_m = self.h2o_dos(hidden_state_m)
