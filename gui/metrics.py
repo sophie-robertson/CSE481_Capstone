@@ -23,16 +23,11 @@ def akinesia(test, base, input_test, input_base):
         
         # 50 x 200 smth trial
         curr_test_trial = test[ind]
-        # print(curr_test_trial.shape)
         muscle_mvmts_test = np.zeros((50))
-        # print("trial size" + str(curr_test_trial.shape[1]))
         for i in range(curr_test_trial.shape[1]):
             muscle = curr_test_trial[:,i]
-            # print(muscle)
-            # print(muscle.shape)
             # for each mucle, what is the first time that it is non-zero
             mvms = np.argwhere(muscle!=0)
-            # print(mvms)
             if mvms.size != 0:
                 muscle_mvmts_test[i] = mvms[0][0]
         # subtract that index from the go_cue !! NEEDS TO BE CHANGED TO GO CUE FROM IMAGE !!
@@ -94,7 +89,6 @@ def hypokinesia(test, base):
     # store in all_trial_int_base a trials x 50 matrix
     trials_base = base
     num_trials_base = base.shape[0]
-    print(num_trials_base)
     all_trial_int_base = np.zeros((num_trials_base, 50))
     
     for ind,trial in enumerate(trials_base):
@@ -103,7 +97,6 @@ def hypokinesia(test, base):
     # same thing as above but for 'test' 
     trials_test = test
     num_trials_test = len(test)
-    print(num_trials_test)
     all_trial_int_test = np.zeros((num_trials_test, 50))
     for ind,trial in enumerate(trials_test):
         all_trial_int_test[ind] = torch.sum(trial, axis = 0)
@@ -136,12 +129,9 @@ def bradykinesia(test, base):
     # loop through the trails for 'base', taking the maximum velocity and storing it
     # in all_trial_max_base, trials x 50
     num_trials_base = base.shape[0]
-    print(base.shape)
     all_trial_max_base = np.zeros((num_trials_base, 50))
     
     for ind,trial in enumerate(base):
-        print(trial.shape)
-        print(np.max(trial, axis = 0))
         all_trial_max_base[ind] = np.max(trial, axis = 1)
 
     # same thing as above but for 'test'
@@ -231,7 +221,6 @@ def vel_to_acc(data):
     accs = []
     
     for trial in enumerate(data):
-        # print(trial[1])
         accs.append(np.diff(trial[1]))
     
     return accs
