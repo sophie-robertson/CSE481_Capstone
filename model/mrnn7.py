@@ -36,6 +36,11 @@ class MilliesRNN(nn.Module):
         self.i2h_dos = nn.Linear(151, self.hidden_size)
         self.h2h_dos = nn.Linear(self.hidden_size, self.hidden_size)
         self.h2o_dos = nn.Linear(self.hidden_size, self.output_size)
+
+        self.cuda = cuda
+
+        if cuda is not None:
+            self.to(cuda)
         
         
 
@@ -117,7 +122,7 @@ class MilliesRNN(nn.Module):
             out_m = self.h2o_dos(hidden_state_m)
             outputs_m[:, i, :] = out_m
             hidden_states_m[:, i, :] = hidden_state_m
-
+        
         return outputs_m
 
     

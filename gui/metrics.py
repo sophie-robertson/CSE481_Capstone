@@ -12,7 +12,7 @@ import torch
 #       input is shape [numtrials][1][length of each trial]
 #       test and base should have shape [numtrials][50][length of each trial]
 
-def akinesia(test, base, input_test, input_base):
+def akinesia(test, base, input_test, input_base, epsilon = 0.05):
 
     # loop over the test trials creating all_test_delays, a trials x 50 matrix with the delay from each muscle during each trial
     num_trials_test = input_test.shape[0]
@@ -27,7 +27,7 @@ def akinesia(test, base, input_test, input_base):
         for i in range(curr_test_trial.shape[1]):
             muscle = curr_test_trial[:,i]
             # for each mucle, what is the first time that it is non-zero
-            mvms = np.argwhere(muscle!=0)
+            mvms = np.argwhere(abs(muscle)>epsilon)
             if mvms.size != 0:
                 muscle_mvmts_test[i] = mvms[0][0]
         # subtract that index from the go_cue !! NEEDS TO BE CHANGED TO GO CUE FROM IMAGE !!
@@ -44,7 +44,7 @@ def akinesia(test, base, input_test, input_base):
         curr_base_trial = base[ind]
         muscle_mvmts_base = np.zeros((50))
         for i, muscle in enumerate(curr_base_trial):
-            mvms = np.argwhere(muscle!=0)
+            mvms = np.argwhere(abs(muscle)>epsilon)
             if mvms.size != 0:
                 muscle_mvmts_base[i] = mvms[0]
        
