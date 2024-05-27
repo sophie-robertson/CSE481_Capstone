@@ -57,7 +57,10 @@ def akinesia(test, base, input_test, input_base, epsilon = 0.05):
 
     # 2-sample t-score --> p-value test
     # What's the probability that these samples came from the same distribution?
+
+    print('hello')
     mean_dist_base = np.average(all_base_delays, axis = 0)
+    # mean_dist_base = 235
     std_dist_base = scipy.stats.tstd(all_base_delays, axis = 0)
     mean_dist_test = np.average(all_test_delays, axis = 0)
     std_dist_test = scipy.stats.tstd(all_test_delays, axis = 0)
