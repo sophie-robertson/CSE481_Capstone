@@ -1,6 +1,6 @@
 # CSE481_Capstone
 
-First look at capstone_env.txt to create a conda environment and install dependencies!
+First look at necapstone_env.yml to create a conda environment and install dependencies!
 
 muscles: contains images of different upper body muscles affected by our model\
 \
