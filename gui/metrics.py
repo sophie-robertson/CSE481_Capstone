@@ -12,7 +12,7 @@ import torch
 #       input is shape [numtrials][1][length of each trial]
 #       test and base should have shape [numtrials][50][length of each trial]
 
-def akinesia(test, base, input_test, input_base, epsilon = 0.05):
+def akinesia(test, base, input_test, epsilon = 0.05):
 
     # loop over the test trials creating all_test_delays, a trials x 50 matrix with the delay from each muscle during each trial
     num_trials_test = input_test.shape[0]
@@ -20,7 +20,7 @@ def akinesia(test, base, input_test, input_base, epsilon = 0.05):
     for ind,trial in enumerate(input_test):
         inxs = np.argwhere(trial<1)
         go_cue = inxs[0]
-        
+        print(trial.shape)
         # 50 x 200 smth trial
         curr_test_trial = test[ind]
         muscle_mvmts_test = np.zeros((50))
@@ -28,26 +28,28 @@ def akinesia(test, base, input_test, input_base, epsilon = 0.05):
             muscle = curr_test_trial[:,i]
             # for each mucle, what is the first time that it is non-zero
             mvms = np.argwhere(abs(muscle)>epsilon)
-            if mvms.size != 0:
+            print(mvms)
+            np_ver = mvms.detach().cpu().numpy()
+            if np_ver[0].size != 0:
                 muscle_mvmts_test[i] = mvms[0][0]
         # subtract that index from the go_cue !! NEEDS TO BE CHANGED TO GO CUE FROM IMAGE !!
         all_test_delays[ind] = muscle_mvmts_test - go_cue
 
     # same thing as above for base trials
-    num_trials_base = input_base.shape[0]
+    num_trials_base = input_test.shape[0]
     all_base_delays = np.zeros((num_trials_base, 50))
-    for ind,trial in enumerate(input_base):
+    for ind,trial in enumerate(input_test):
         inxs = np.argwhere(trial<1)
         go_cue = inxs[0]
 
         # 50 x 200 smth trial
         curr_base_trial = base[ind]
         muscle_mvmts_base = np.zeros((50))
-        for i, muscle in enumerate(curr_base_trial):
+        for i in range(curr_base_trial.shape[1]):
+            muscle = curr_base_trial[:, i]
             mvms = np.argwhere(abs(muscle)>epsilon)
             if mvms.size != 0:
-                muscle_mvmts_base[i] = mvms[0]
-       
+                muscle_mvmts_base[i] = mvms[0][0]
 
         all_base_delays[ind] = muscle_mvmts_base - go_cue
     
@@ -88,11 +90,10 @@ def hypokinesia(test, base):
     # loop through all the trials in 'base', sum up the velocities across all muscles, still keeping them seperate
     # store in all_trial_int_base a trials x 50 matrix
     trials_base = base
-    num_trials_base = base.shape[0]
+    num_trials_base = len(base)
     all_trial_int_base = np.zeros((num_trials_base, 50))
-    
     for ind,trial in enumerate(trials_base):
-        all_trial_int_base[ind] = np.sum(trial, axis = 1)
+        all_trial_int_base[ind] = torch.sum(trial, axis = 0)
     
     # same thing as above but for 'test' 
     trials_test = test
@@ -128,11 +129,11 @@ def bradykinesia(test, base):
 
     # loop through the trails for 'base', taking the maximum velocity and storing it
     # in all_trial_max_base, trials x 50
-    num_trials_base = base.shape[0]
+    num_trials_base = len(base)
     all_trial_max_base = np.zeros((num_trials_base, 50))
     
     for ind,trial in enumerate(base):
-        all_trial_max_base[ind] = np.max(trial, axis = 1)
+        all_trial_max_base[ind] = torch.max(trial, axis = 0)[0]
 
     # same thing as above but for 'test'
     num_trials_test = len(test)
@@ -166,7 +167,8 @@ def tremor_factor(test, base):
     hold_arr = np.zeros((num_base_trials, 50))
     #Calculate square
     for i,trial in enumerate(base_acc):
-        for j,muscle in enumerate(trial):
+        for j in range(trial.shape[1]):
+            muscle = trial[:, j]
             square = 0
             mean = 0.0
             root = 0.0
