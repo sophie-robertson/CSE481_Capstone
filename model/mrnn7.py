@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from torch.utils.data import Dataset
 from scipy.io import loadmat
+import math 
 
 class MilliesRNN(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, bidirc=False):
@@ -11,11 +12,13 @@ class MilliesRNN(nn.Module):
         self.hidden_size = hidden_size
         self.output_size = output_size
 
+        # If it is bidirectional, need to add the output from the following layer to the 
+        # inputs - for the 'back' direction
         self.bidirc = bidirc
         if self.bidirc:
             self.hidden_size += self.output_size
 
-        # visual cortex
+        # visual cortex (recurrent)
         self.i2h = nn.Linear(self.input_size + self.output_size, 100)
         self.h2h = nn.Linear(100, 100)
         self.h2o = nn.Linear(100, 100)
@@ -24,27 +27,19 @@ class MilliesRNN(nn.Module):
         self.stri = nn.Linear(151, 50)
 
         # gpe & gpi
-        #   GPE could be modeled as an RNN with the STN ?
         self.gpe = nn.Linear(51, 50)
         self.gpi = nn.Linear(101, 50)
-
 
         # thalamus
         self.thal = nn.Linear(101, self.output_size)
 
-        # motor cortex
+        # motor cortex (recurrent)
         self.i2h_dos = nn.Linear(151, self.hidden_size)
         self.h2h_dos = nn.Linear(self.hidden_size, self.hidden_size)
         self.h2o_dos = nn.Linear(self.hidden_size, self.output_size)
-
-        self.cuda = cuda
-
-        if cuda is not None:
-            self.to(cuda)
-        
         
 
-    def forward(self, data, dopamine = 1): 
+    def forward(self, data, d = (2.0,1.0)): 
         """
         x --> N x L
         hidden state --> N x H
@@ -56,6 +51,7 @@ class MilliesRNN(nn.Module):
         batch_size = data.shape[0]
         trial_len = data.shape[1]
 
+        # Initialize arrays to hold the intermediate results
         outputs_v = torch.zeros((batch_size, trial_len, 100))
         outputs_s = torch.zeros((batch_size, trial_len, 50))
         outputs_gpe = torch.zeros((batch_size, trial_len, 50))
@@ -67,10 +63,10 @@ class MilliesRNN(nn.Module):
         hidden_state_v = self.init_hidden(batch_size, 100)
         hidden_state_m = self.init_hidden(batch_size, 150)
 
-        snc = self.init_snc(batch_size, dopamine) # N x 50
+        
 
         inp_mots = torch.zeros((batch_size, trial_len, self.output_size))
-
+        snc = self.init_snc(batch_size, dope = d) # N x 50
         
         for i in range(trial_len):
             image = images[:, i, :]
@@ -127,16 +123,18 @@ class MilliesRNN(nn.Module):
 
     
     def init_hidden(self, batch_size, hidden_size):
-        # return nn.init.kaiming_uniform_(torch.empty(self.num_layers, self.hid_dim))
         return nn.init.kaiming_uniform_(torch.empty(batch_size, hidden_size)) # for bidirectional
     
     def retanh(self, x):
         return torch.tanh(torch.clamp(x, min=0))
     
-    def init_snc(self, batch_size, dope):
-        return torch.nn.init.normal_(torch.empty(batch_size, 50), mean=dope, std=1.0)
+    # Defines the dopamine input from the SNc to be a gaussian distribution with the indicated parameters
+    def init_snc(self, batch_size, dope = (2.0,1.0)):
+        dope_mean, dope_std = dope
+        return torch.nn.init.normal_(torch.empty(batch_size, 50), mean=dope_mean, std=dope_std)
+        
     
-
+# Dataset class in order to use a dataloader during training 
 class MilliesDataset(Dataset):
     def __init__(self, data_file):
         monkey_data = loadmat(data_file) 
